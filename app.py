@@ -3,10 +3,10 @@ from flask import Flask, request, jsonify
 import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
 import openai
 import json
 import os
+import ast
 
 app = Flask(__name__)
 
@@ -40,8 +40,6 @@ def cluster_clienti():
             return jsonify({"errore": "Sono necessari almeno 2 clienti per eseguire il clustering."}), 400
 
         kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-
-
         df["cluster"] = kmeans.fit_predict(X_scaled)
 
         # 3. Output JSON clienti + cluster
@@ -52,20 +50,26 @@ def cluster_clienti():
         cluster_stats = df.groupby("cluster")[features].mean().round(2)
         cluster_stats_str = cluster_stats.to_string()
 
-        # 5. Chiamata a GPT
+        # 5. Chiamata a GPT con richiesta output JSON
+        client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
         prompt = f"""
-        Sei un esperto di marketing. Analizza le medie dei seguenti 8 cluster clienti di una clinica veterinaria.
-        Per ciascun cluster, scrivi:
-        - un nome semplice (es. Cliente VIP)
-        - una breve descrizione del comportamento del cliente
-        - una strategia marketing suggerita
+        Sei un esperto di marketing. Analizza le medie dei seguenti {n_clusters} cluster clienti di una clinica veterinaria.
+
+        Per ciascun cluster restituisci un oggetto JSON nel seguente formato:
+        {{
+          "cluster": <numero>,
+          "nome": "<nome cluster>",
+          "descrizione": "<descrizione comportamento>",
+          "strategia": "<strategia marketing>"
+        }}
+
+        Rispondi solo con un array JSON valido, senza testo aggiuntivo.
 
         Ecco i dati medi per cluster:
 
         {cluster_stats_str}
         """
-
-        client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
         response = client.chat.completions.create(
             model="gpt-4o",
@@ -78,10 +82,19 @@ def cluster_clienti():
 
         gpt_output = response.choices[0].message.content
 
-        # 6. Risposta API
+        # 6. Parsing diretto JSON
+        try:
+            cluster_parsed = json.loads(gpt_output)
+        except json.JSONDecodeError:
+            try:
+                cluster_parsed = ast.literal_eval(gpt_output)
+            except Exception:
+                cluster_parsed = []
+
+        # 7. Risposta API
         return jsonify({
             "cluster_clienti": json_output,
-            "analisi_marketing": gpt_output
+            "analisi_marketing": cluster_parsed
         })
 
     except Exception as e:
@@ -89,4 +102,3 @@ def cluster_clienti():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000, debug=True)
-
