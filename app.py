@@ -9,7 +9,7 @@ import json
 import os
 import ast
 import re
-
+import requests
 app = Flask(__name__)
 CORS(app)
 # Definizione delle colonne da usare
