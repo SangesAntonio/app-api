@@ -1,6 +1,4 @@
 # app.py
-from flask_cors import CORS
-
 from flask import Flask, request, jsonify
 import pandas as pd
 from sklearn.cluster import KMeans
@@ -10,9 +8,9 @@ import json
 import os
 import ast
 import re
+import requests
 
 app = Flask(__name__)
-CORS(app)
 
 # Definizione delle colonne da usare
 features = [
@@ -106,6 +104,24 @@ def cluster_clienti():
             "cluster_clienti": json_output,
             "analisi_marketing": cluster_parsed
         })
+
+    except Exception as e:
+        return jsonify({"errore": str(e)}), 500
+
+@app.route('/cluster-da-php', methods=['GET'])
+def cluster_da_php():
+    try:
+        f_idazienda = request.args.get('f_idazienda')
+        if not f_idazienda:
+            return jsonify({"errore": "Parametro 'f_idazienda' mancante."}), 400
+
+        url_php = f"https://www.demoevolution.it/clinic/Insight_cliente.php?f_idazienda={f_idazienda}"
+        response = requests.get(url_php)
+        clienti = response.json()
+
+        # Usa direttamente la funzione cluster_clienti simulando una POST
+        with app.test_request_context(method='POST', json=clienti):
+            return cluster_clienti()
 
     except Exception as e:
         return jsonify({"errore": str(e)}), 500
