@@ -35,7 +35,13 @@ def cluster_clienti():
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
 
-        kmeans = KMeans(n_clusters=8, random_state=42)
+        n_clusters = min(8, len(df))
+        if n_clusters < 2:
+            return jsonify({"errore": "Sono necessari almeno 2 clienti per eseguire il clustering."}), 400
+
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+
+
         df["cluster"] = kmeans.fit_predict(X_scaled)
 
         # 3. Output JSON clienti + cluster
