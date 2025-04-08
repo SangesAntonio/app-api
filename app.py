@@ -7,6 +7,7 @@ import openai
 import json
 import os
 import ast
+import re
 
 app = Flask(__name__)
 
@@ -82,12 +83,18 @@ def cluster_clienti():
 
         gpt_output = response.choices[0].message.content
 
-        # 6. Parsing diretto JSON
+        # 6. Pulizia e parsing JSON da GPT
+        json_match = re.search(r"\[\s*{.*?}\s*\]", gpt_output, re.DOTALL)
+        if json_match:
+            gpt_output_clean = json_match.group(0)
+        else:
+            gpt_output_clean = "[]"
+
         try:
-            cluster_parsed = json.loads(gpt_output)
+            cluster_parsed = json.loads(gpt_output_clean)
         except json.JSONDecodeError:
             try:
-                cluster_parsed = ast.literal_eval(gpt_output)
+                cluster_parsed = ast.literal_eval(gpt_output_clean)
             except Exception:
                 cluster_parsed = []
 
