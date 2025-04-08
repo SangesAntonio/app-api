@@ -1,4 +1,5 @@
-# app.py
+from flask_cors import CORS
+
 from flask import Flask, request, jsonify
 import pandas as pd
 from sklearn.cluster import KMeans
@@ -8,10 +9,9 @@ import json
 import os
 import ast
 import re
-import requests
 
 app = Flask(__name__)
-
+CORS(app)
 # Definizione delle colonne da usare
 features = [
     "fatture_interamente_pagate",
@@ -24,6 +24,7 @@ features = [
     "numero_appuntamenti",
     "quantita_visite"
 ]
+
 
 @app.route('/cluster-clienti', methods=['POST'])
 def cluster_clienti():
