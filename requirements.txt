@@ -4,3 +4,5 @@ pandas
 scikit-learn
 openai
 requests
+u8darts[all]
+
