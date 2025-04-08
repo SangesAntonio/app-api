@@ -116,7 +116,7 @@ def cluster_da_php():
         if not f_idazienda:
             return jsonify({"errore": "Parametro 'f_idazienda' mancante."}), 400
 
-        url_php = f"https://www.demoevolution.it/clinic/Insight_cliente.php?f_idazienda={f_idazienda}"
+        url_php = f"https://www.mychartjourney.com/api/insight.php?f_idazienda={f_idazienda}"
         response = requests.get(url_php)
         clienti = response.json()
 
