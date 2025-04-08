@@ -1,4 +1,6 @@
 # app.py
+from flask_cors import CORS
+
 from flask import Flask, request, jsonify
 import pandas as pd
 from sklearn.cluster import KMeans
@@ -10,6 +12,7 @@ import ast
 import re
 
 app = Flask(__name__)
+CORS(app)
 
 # Definizione delle colonne da usare
 features = [
