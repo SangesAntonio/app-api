@@ -65,9 +65,9 @@ def cluster_clienti():
         {cluster_stats_str}
         """
 
-        openai.api_key = os.environ.get("OPENAI_API_KEY")
+        client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": "Sei un esperto di marketing segmentato."},
