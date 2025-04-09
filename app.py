@@ -34,6 +34,11 @@ def cluster_clienti():
         data = request.get_json()
         df = pd.DataFrame(data)
 
+        # Verifica colonne mancanti
+        missing_cols = [col for col in features if col not in df.columns]
+        if missing_cols:
+            return jsonify({"errore": f"Colonne mancanti nel dataset: {missing_cols}"}), 400
+
         # 2. Clustering
         X = df[features]
         scaler = StandardScaler()
