@@ -132,7 +132,7 @@ def cluster_da_php():
     except Exception as e:
         return jsonify({"errore": str(e)}), 500
     
-@app.route('/forecast-appuntamenti', methods=['GET'])
+@app.route('/forecast-appuntamenti', methods=['GET',' POST'])
 def forecast_appuntamenti():
     try:
         if request.method == 'POST':
