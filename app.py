@@ -166,7 +166,7 @@ def forecast_appuntamenti():
             "growth": params.get("growth", "linear"),
             "yearly_seasonality": params.get("yearly_seasonality", False),
             "weekly_seasonality": params.get("weekly_seasonality", True),
-            "changepoint_prior_scale": params.get("changepoint_prior_scale", 0.1)
+            "changepoint_prior_scale": params.get("changepoint_prior_scale", 2)
         }
 
         modello = Prophet(**model_args)
