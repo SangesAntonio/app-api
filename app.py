@@ -10,17 +10,7 @@ import os
 import ast
 import re
 import requests
-
-from darts import TimeSeries
-from darts.models import XGBModel
-from darts.dataprocessing.transformers import Scaler
-from darts.utils.timeseries_generation import datetime_attribute_timeseries
-
-
-
-
-
-
+from prophet import Prophet
 app = Flask(__name__)
 CORS(app)
 # Definizione delle colonne da usare
@@ -137,95 +127,49 @@ def cluster_da_php():
 
     except Exception as e:
         return jsonify({"errore": str(e)}), 500
-@app.route('/forecast-lavoro', methods=['GET'])
-def forecast_lavoro():
-
-  
-
+    
+app.route('/forecast-appuntamenti', methods=['GET'])
+def forecast_appuntamenti():
     f_idazienda = request.args.get('f_idazienda')
-    if not f_idazienda:
-        return jsonify({"errore": "Parametro f_idazienda mancante"}), 400
+    url = f"https://www.mychartjourney.com/api/lavoro.php?f_idazienda={f_idazienda}"
+    response = requests.get(url)
+    dati = response.json()
 
-    try:
-        # 1. Richiama PHP per dati eventi giornalieri
-        res = requests.get(f"https://www.demoevolution.it/clinic/lavoro-clinica.php?f_idazienda={f_idazienda}")
-        dati = res.json()
-        df = pd.DataFrame(dati)
-        df['data'] = pd.to_datetime(df['data'])
-        df = df.set_index('data')
+    df = pd.DataFrame(dati)
+    df["data"] = pd.to_datetime(df["data"], format="%Y%m%d")
+    df = df.sort_values("data")
 
-        # 2. Prepara dati per forecast
-        colonne_target = df.columns.drop("staff_presente") if "staff_presente" in df.columns else df.columns
-        scaler = Scaler()
-        target_scaled = scaler.fit_transform(TimeSeries.from_series(df[colonne_target].sum(axis=1)))
+    df_prophet = df[["data", "num_appuntamenti"]].rename(columns={"data": "ds", "num_appuntamenti": "y"})
 
-        oggi = df.index.max()
-        past_covariates = None
-        future_covariates = None
+    m = Prophet(
+        daily_seasonality=False,
+        weekly_seasonality=True,
+        yearly_seasonality=False,
+        changepoint_prior_scale=0.1,
+        seasonality_mode='multiplicative',
+        n_changepoints=20
+    )
+    m.add_seasonality(name='monthly', period=30.5, fourier_order=5)
+    m.fit(df_prophet)
 
-        for col in df.columns:
-            serie = TimeSeries.from_series(df[col])
-            serie_scaled = scaler.transform(serie)
-            if df.loc[df.index > oggi, col].notna().sum() > 0:
-                future_covariates = serie_scaled if future_covariates is None else future_covariates.stack(serie_scaled)
-            else:
-                past_covariates = serie_scaled if past_covariates is None else past_covariates.stack(serie_scaled)
+    future = m.make_future_dataframe(periods=60)
+    forecast = m.predict(future)
 
-        # Aggiungi attributi temporali
-        past_covariates = past_covariates.stack(datetime_attribute_timeseries(past_covariates, "month", one_hot=True))
-        past_covariates = past_covariates.stack(datetime_attribute_timeseries(past_covariates, "day_of_week", one_hot=True))
-        if future_covariates:
-            future_covariates = future_covariates.stack(datetime_attribute_timeseries(future_covariates, "month", one_hot=True))
-            future_covariates = future_covariates.stack(datetime_attribute_timeseries(future_covariates, "day_of_week", one_hot=True))
+    forecast_export = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]]
+    forecast_export.columns = ["data", "previsione", "min", "max"]
+    forecast_export["data"] = forecast_export["data"].dt.strftime("%Y-%m-%d")
 
-        # 3. Forecast
-        model = XGBModel(lags=30, lags_past_covariates=30, output_chunk_length=60, random_state=42)
-        model.fit(series=target_scaled, past_covariates=past_covariates, future_covariates=future_covariates)
-        forecast_scaled = model.predict(n=60, past_covariates=past_covariates, future_covariates=future_covariates)
-        forecast = scaler.inverse_transform(forecast_scaled)
+    stagionalita = forecast[["ds", "weekly", "monthly"]].copy()
+    stagionalita.columns = ["data", "stagionalita_settimanale", "stagionalita_mensile"]
+    stagionalita["data"] = stagionalita["data"].dt.strftime("%Y-%m-%d")
 
-        # 4. Prepara JSON
-        forecast_df = forecast.pd_dataframe().reset_index()
-        forecast_df.columns = ["data", "carico_lavoro_previsto"]
+    risultato = {
+        "forecast": forecast_export.to_dict(orient="records"),
+        "stagionalita": stagionalita.to_dict(orient="records")
+    }
 
-        if "staff_presente" in df.columns:
-            staff_futuro = df["staff_presente"].reindex(forecast_df["data"], method="nearest")
-            forecast_df["staff_presente"] = staff_futuro.values
-
-        forecast_json = forecast_df.to_dict(orient="records")
-
-        # 5. Analisi GPT
-        prompt = f"""
-        Ti invio i dati previsionali del carico di lavoro di una clinica veterinaria per i prossimi 60 giorni.
-
-        Analizzali e dimmi:
-        - Quai sono i giorni più critici?
-        - Esistono trend in crescita o calo?
-        - Suggerisci eventuali strategie di pianificazione per il personale.
-        Non restituire i valori numerici esatti.
-
-        Dati:
-        {forecast_json}
-        """
-
-        client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        gpt_response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "Sei un esperto analista di dati di cliniche veterinarie."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3
-        )
-
-        return jsonify({
-            "forecast": forecast_json,
-            "analisi_gpt": gpt_response.choices[0].message.content
-        })
-
-    except Exception as e:
-        return jsonify({"errore": str(e)}), 500
-
+    return jsonify(risultato)
+    
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000, debug=True)

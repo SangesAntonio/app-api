@@ -1,8 +1,11 @@
-Flask-Cors
-Flask
+flask
+flask-cors
 pandas
+requests
 scikit-learn
 openai
-requests
-u8darts[all]
+prophet
+matplotlib
+numpy
+
 
