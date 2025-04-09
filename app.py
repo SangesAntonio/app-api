@@ -156,7 +156,7 @@ def forecast_appuntamenti():
 
         if frequenza != "D":
             df = df.set_index("ds").resample(frequenza).sum().reset_index() 
-
+        params = {}
         model_args = {
             "growth": params.get("growth", "linear"),
             "yearly_seasonality": params.get("yearly_seasonality", False),
