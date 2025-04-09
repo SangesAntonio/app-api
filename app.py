@@ -1,5 +1,4 @@
 from flask_cors import CORS
-
 from flask import Flask, request, jsonify
 import pandas as pd
 from sklearn.cluster import KMeans
@@ -133,7 +132,7 @@ def cluster_da_php():
     except Exception as e:
         return jsonify({"errore": str(e)}), 500
     
-app.route('/forecast-appuntamenti', methods=['GET'])
+@app.route('/forecast-appuntamenti', methods=['GET'])
 def forecast_appuntamenti():
     f_idazienda = request.args.get('f_idazienda')
     url = f"https://www.mychartjourney.com/api/lavoro.php?f_idazienda={f_idazienda}"
