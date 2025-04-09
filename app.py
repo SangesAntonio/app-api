@@ -134,46 +134,67 @@ def cluster_da_php():
     
 @app.route('/forecast-appuntamenti', methods=['GET'])
 def forecast_appuntamenti():
-    f_idazienda = request.args.get('f_idazienda')
-    url = f"https://www.mychartjourney.com/api/lavoro.php?f_idazienda={f_idazienda}"
-    response = requests.get(url)
-    dati = response.json()
+    try:
+        if request.method == 'POST':
+            payload = request.get_json()
+            dati = payload.get("dati")
+            frequenza = payload.get("frequenza", "D")
+            periodi = int(payload.get("periodi", 60))
+            params = payload.get("params", {})
 
-    df = pd.DataFrame(dati)
-    df["data"] = pd.to_datetime(df["data"], format="%Y%m%d")
-    df = df.sort_values("data")
+            df = pd.DataFrame(dati)
+            df['ds'] = pd.to_datetime(df['ds'])
+            df['y'] = pd.to_numeric(df['y'])
 
-    df_prophet = df[["data", "num_appuntamenti"]].rename(columns={"data": "ds", "num_appuntamenti": "y"})
+            if frequenza != "D":
+                df = df.set_index('ds').resample(frequenza).mean().reset_index()
+        else:
+            f_idazienda = request.args.get('f_idazienda', default=7, type=int)
+            url = f"https://www.mychartjourney.com/api/lavoro.php?f_idazienda={f_idazienda}"
+            response = requests.get(url)
+            dati = response.json()
 
-    m = Prophet(
-        daily_seasonality=False,
-        weekly_seasonality=True,
-        yearly_seasonality=False,
-        changepoint_prior_scale=0.1,
-        seasonality_mode='multiplicative',
-        n_changepoints=20
-    )
-    m.add_seasonality(name='monthly', period=30.5, fourier_order=5)
-    m.fit(df_prophet)
+            df = pd.DataFrame(dati)
+            df["ds"] = pd.to_datetime(df["data"], format="%Y%m%d")
+            df["y"] = df["num_appuntamenti"]
+            df = df.sort_values("ds")
+            frequenza = "D"
+            periodi = 60
+            params = {}
 
-    future = m.make_future_dataframe(periods=60)
-    forecast = m.predict(future)
+        model_args = {
+            "growth": params.get("growth", "linear"),
+            "yearly_seasonality": params.get("yearly_seasonality", False),
+            "weekly_seasonality": params.get("weekly_seasonality", True),
+            "changepoint_prior_scale": params.get("changepoint_prior_scale", 0.1)
+        }
 
-    forecast_export = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]]
-    forecast_export.columns = ["data", "previsione", "min", "max"]
-    forecast_export["data"] = forecast_export["data"].dt.strftime("%Y-%m-%d")
+        modello = Prophet(**model_args)
+        modello.add_seasonality(name='monthly', period=30.5, fourier_order=5)
+        modello.fit(df)
 
-    stagionalita = forecast[["ds", "weekly", "monthly"]].copy()
-    stagionalita.columns = ["data", "stagionalita_settimanale", "stagionalita_mensile"]
-    stagionalita["data"] = stagionalita["data"].dt.strftime("%Y-%m-%d")
+        futuro = modello.make_future_dataframe(periods=periodi, freq=frequenza)
+        previsione = modello.predict(futuro)
 
-    risultato = {
-        "forecast": forecast_export.to_dict(orient="records"),
-        "stagionalita": stagionalita.to_dict(orient="records")
-    }
+        forecast_export = previsione[['ds', 'yhat', 'yhat_lower', 'yhat_upper']]
+        forecast_export.columns = ['data', 'previsione', 'min', 'max']
+        forecast_export['data'] = forecast_export['data'].dt.strftime("%Y-%m-%d")
 
-    return jsonify(risultato)
-    
+        stagionalita = previsione[['ds']].copy()
+        stagionalita['data'] = stagionalita['ds'].dt.strftime("%Y-%m-%d")
+        if 'weekly' in previsione.columns:
+            stagionalita['stagionalita_settimanale'] = previsione['weekly']
+        if 'monthly' in previsione.columns:
+            stagionalita['stagionalita_mensile'] = previsione['monthly']
+
+        return jsonify({
+            "success": True,
+            "forecast": forecast_export.to_dict(orient='records'),
+            "stagionalita": stagionalita.drop(columns=['ds']).to_dict(orient='records')
+        })
+
+    except Exception as e:
+        return jsonify({"errore": str(e)}), 400
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000, debug=True)
