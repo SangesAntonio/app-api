@@ -132,38 +132,30 @@ def cluster_da_php():
     except Exception as e:
         return jsonify({"errore": str(e)}), 500
     
-@app.route('/forecast-appuntamenti', methods=['GET','POST'])
+@app.route('/forecast-appuntamenti', methods=['POST'])
 def forecast_appuntamenti():
     try:
         print("Metodo:", request.method)
         print("Payload ricevuto:", request.get_json())
 
-        if request.method == 'POST':
-            payload = request.get_json()
-            dati = payload.get("dati")
-            frequenza = payload.get("frequenza", "D")
-            periodi = int(payload.get("periodi", 60))
-            params = payload.get("params", {})
+        
+        payload = request.get_json()
+        f_idazienda = payload.get("f_idazienda")
+        frequenza = payload.get("frequenza", "D")
+        periodi = int(payload.get("periodi", 60))
 
-            df = pd.DataFrame(dati)
-            df['ds'] = pd.to_datetime(df['ds'])
-            df['y'] = pd.to_numeric(df['y'])
+        # Recupero i dati dalla tua API PHP
+        url = f"https://www.mychartjourney.com/api/lavoro.php?f_idazienda={f_idazienda}"
+        response = requests.get(url)
+        dati = response.json()
 
-            if frequenza != "D":
-                df = df.set_index('ds').resample(frequenza).mean().reset_index()
-        else:
-            f_idazienda = request.args.get('f_idazienda', default=7, type=int)
-            url = f"https://www.mychartjourney.com/api/lavoro.php?f_idazienda={f_idazienda}"
-            response = requests.get(url)
-            dati = response.json()
+        df = pd.DataFrame(dati)
+        df["ds"] = pd.to_datetime(df["data"], format="%Y%m%d")
+        df["y"] = df["num_appuntamenti"]
+        df = df.sort_values("ds")
 
-            df = pd.DataFrame(dati)
-            df["ds"] = pd.to_datetime(df["data"], format="%Y%m%d")
-            df["y"] = df["num_appuntamenti"]
-            df = df.sort_values("ds")
-            frequenza = "D"
-            periodi = 60
-            params = {}
+        if frequenza != "D":
+            df = df.set_index("ds").resample(frequenza).sum().reset_index() 
 
         model_args = {
             "growth": params.get("growth", "linear"),
