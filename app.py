@@ -13,23 +13,24 @@ from prophet import Prophet
 app = Flask(__name__)
 CORS(app)
 # Definizione delle colonne da usare
-features = [
-    "fatture_interamente_pagate",
-    "num_pets",
-    "numero_preventivi",
-    "note_di_credito",
-    "debito_attuale",
-    "credito_attuale",
-    "spesa_totale",
-    "numero_appuntamenti",
-    "quantita_visite"
-]
+
 
 
 @app.route('/cluster-clienti', methods=['POST'])
 def cluster_clienti():
     try:
         # 1. Leggi i dati dal JSON inviato
+        features = [
+            "fatture_interamente_pagate",
+            "num_pets",
+            "numero_preventivi",
+            "note_di_credito",
+            "debito_attuale",
+            "credito_attuale",
+            "spesa_totale",
+            "numero_appuntamenti",
+            "quantita_visite"
+        ]
         data = request.get_json()
         df = pd.DataFrame(data)
 
@@ -145,7 +146,7 @@ def forecast_appuntamenti():
         periodi = int(payload.get("periodi", 60))
 
         # Recupero i dati dalla tua API PHP
-        url = f"https://www.mychartjourney.com/api/lavoro.php?f_idazienda={f_idazienda}"
+        url = f"https://www.demoevolution.it/clinic/lavoro-clinica.php?f_idazienda={f_idazienda}"
         response = requests.get(url)
         dati = response.json()
 
@@ -193,3 +194,5 @@ def forecast_appuntamenti():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000, debug=True)
+
+
