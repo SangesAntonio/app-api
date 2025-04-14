@@ -146,7 +146,7 @@ def forecast_appuntamenti():
         periodi = int(payload.get("periodi", 60))
 
         # Recupero i dati dalla tua API PHP
-        url = f"https://www.mychartjourney.com/api/lavoro.php?f_idazienda={f_idazienda}"
+        url = f"https://www.demoevolution.it/clinic/lavoro-clinica.php?f_idazienda={f_idazienda}"
         response = requests.get(url)
         dati = response.json()
 
