@@ -122,7 +122,7 @@ def cluster_da_php():
         if not f_idazienda:
             return jsonify({"errore": "Parametro 'f_idazienda' mancante."}), 400
 
-        url_php = f"https://www.mychartjourney.com/api/insight.php?f_idazienda={f_idazienda}"
+        url_php = f"https://www.demoevolution.it/clinic/insight-clienti.php?f_idazienda={f_idazienda}"
         response = requests.get(url_php)
         clienti = response.json()
 
@@ -139,13 +139,12 @@ def forecast_appuntamenti():
         print("Metodo:", request.method)
         print("Payload ricevuto:", request.get_json())
 
-        
         payload = request.get_json()
         f_idazienda = payload.get("f_idazienda")
-        frequenza = payload.get("frequenza", "D")
+        frequenza = payload.get("frequenza", "D")  # "D", "W", "M"
         periodi = int(payload.get("periodi", 60))
 
-        # Recupero i dati dalla tua API PHP
+        # Recupero i dati dalla  API PHP
         url = f"https://www.demoevolution.it/clinic/lavoro-clinica.php?f_idazienda={f_idazienda}"
         response = requests.get(url)
         dati = response.json()
@@ -155,27 +154,29 @@ def forecast_appuntamenti():
         df["y"] = df["num_appuntamenti"]
         df = df.sort_values("ds")
 
-        if frequenza != "D":
-            df = df.set_index("ds").resample(frequenza).sum().reset_index() 
-        params = {}
+
         model_args = {
-            "growth": params.get("growth", "linear"),
-            "yearly_seasonality": params.get("yearly_seasonality", False),
-            "weekly_seasonality": params.get("weekly_seasonality", True),
-            "changepoint_prior_scale": params.get("changepoint_prior_scale", 2)
+            "growth": "linear",
+            "yearly_seasonality": False,
+            "weekly_seasonality": True,
+            "changepoint_prior_scale": 2
         }
 
         modello = Prophet(**model_args)
         modello.add_seasonality(name='monthly', period=30.5, fourier_order=5)
         modello.fit(df)
 
-        futuro = modello.make_future_dataframe(periods=periodi, freq=frequenza)
+        # Future con frequenza giornaliera
+        futuro = modello.make_future_dataframe(periods=periodi, freq="D")
         previsione = modello.predict(futuro)
 
-        forecast_export = previsione[['ds', 'yhat', 'yhat_lower', 'yhat_upper']]
-        forecast_export.columns = ['data', 'previsione', 'min', 'max']
-        forecast_export['data'] = forecast_export['data'].dt.strftime("%Y-%m-%d")
+        # Aggrego il forecast secondo la frequenza scelta dall'utente
+        previsione['data_aggregata'] = previsione['ds'].dt.to_period(frequenza).apply(lambda r: r.start_time)
+        forecast_aggregato = previsione.groupby('data_aggregata')[['yhat', 'yhat_lower', 'yhat_upper']].sum().reset_index()
+        forecast_aggregato.columns = ['data', 'previsione', 'min', 'max']
+        forecast_aggregato['data'] = forecast_aggregato['data'].dt.strftime("%Y-%m-%d")
 
+        # Stagionalità (rimane giornaliera)
         stagionalita = previsione[['ds']].copy()
         stagionalita['data'] = stagionalita['ds'].dt.strftime("%Y-%m-%d")
         if 'weekly' in previsione.columns:
@@ -185,7 +186,7 @@ def forecast_appuntamenti():
 
         return jsonify({
             "success": True,
-            "forecast": forecast_export.to_dict(orient='records'),
+            "forecast": forecast_aggregato.to_dict(orient='records'),
             "stagionalita": stagionalita.drop(columns=['ds']).to_dict(orient='records')
         })
 
