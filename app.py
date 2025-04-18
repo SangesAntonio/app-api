@@ -61,7 +61,6 @@ def cluster_clienti():
 
         # 5. Chiamata a GPT con richiesta output JSON
         client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-
         prompt = f"""
         Sei un esperto di marketing. Analizza le medie dei seguenti {n_clusters} cluster clienti di una clinica veterinaria.
 
@@ -122,7 +121,7 @@ def cluster_da_php():
         if not f_idazienda:
             return jsonify({"errore": "Parametro 'f_idazienda' mancante."}), 400
 
-        url_php = f"https://www.demoevolution.it/clinic/insight-clienti.php?f_idazienda={f_idazienda}"
+        url_php = f"https://evolutionext.it/ai-api/Insight_cliente.php?f_idazienda={f_idazienda}"
         response = requests.get(url_php)
         clienti = response.json()
 
@@ -145,7 +144,7 @@ def forecast_appuntamenti():
         periodi = int(payload.get("periodi", 60))
 
         # Recupero i dati dalla  API PHP
-        url = f"https://www.demoevolution.it/clinic/lavoro-clinica.php?f_idazienda={f_idazienda}"
+        url = f"https://evolutionext.it/ai-api/lavoro-clinica.php?f_idazienda={f_idazienda}"
         response = requests.get(url)
         dati = response.json()
 
