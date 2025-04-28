@@ -71,6 +71,13 @@ def cluster_clienti():
         "descrizione": "<behavior description>",
         "strategia": "<marketing strategy>"
         }}
+        Guidelines:
+        - Provide a detailed and professional analysis.
+        - Use clear, business-oriented language.
+        - Make sure the response is a valid, parsable JSON array without any additional text.
+        - The cluster name ('nome') should be concise and memorable.
+        - The description ('descrizione') should summarize key behavioral traits.
+        - The strategy ('strategia') should be practical and tailored to the cluster profile.
 
         Respond only with a valid JSON array (no additional text).
 
@@ -82,7 +89,11 @@ def cluster_clienti():
         response = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
-                {"role": "system", "content": "Sei un esperto di marketing segmentato."},
+                {"role": "system", "content": "You are a segmented marketing expert specializing in customer behavior analysis for veterinary clinics. "
+                "Your task is to generate detailed, practical marketing insights. "
+                "Always respond using clear, professional business language. "
+                "Unless explicitly asked otherwise, provide output strictly in valid JSON format, using only the specified Italian keys ('cluster', 'nome', 'descrizione', 'strategia'). "
+                "Focus on realistic and actionable marketing strategies tailored to each customer cluster."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.8
