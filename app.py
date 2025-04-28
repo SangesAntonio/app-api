@@ -3,6 +3,8 @@ from flask import Flask, request, jsonify
 import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_score
 import openai
 import json
 import os
