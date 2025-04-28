@@ -3,7 +3,6 @@ from flask import Flask, request, jsonify
 import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import silhouette_score
 import openai
 import json
 import os
@@ -11,9 +10,12 @@ import ast
 import re
 import requests
 from prophet import Prophet
-
 app = Flask(__name__)
 CORS(app)
+# Definizione delle colonne da usare
+
+
+
 @app.route('/cluster-clienti', methods=['POST'])
 def cluster_clienti():
     try:
@@ -92,7 +94,9 @@ def cluster_clienti():
         - The description ('descrizione') should summarize key behavioral traits.
         - The strategy ('strategia') should be practical and tailored to the cluster profile.
         - Response in English.
+
         Here are the average data for each cluster:
+
         {cluster_stats_str}
         """
 
@@ -151,7 +155,8 @@ def cluster_da_php():
             return cluster_clienti()
 
     except Exception as e:
-        return jsonify({"errore": str(e)}), 500  
+        return jsonify({"errore": str(e)}), 500
+    
 @app.route('/forecast-appuntamenti', methods=['POST'])
 def forecast_appuntamenti():
     try:
