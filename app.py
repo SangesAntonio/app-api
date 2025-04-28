@@ -62,30 +62,30 @@ def cluster_clienti():
         # 5. Chiamata a GPT con richiesta output JSON
         client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
         prompt = f"""
-        Sei un esperto di marketing. Analizza le medie dei seguenti {n_clusters} cluster clienti di una clinica veterinaria.
+        You are a marketing expert. Analyze the averages of the following {n_clusters} customer clusters from a veterinary clinic.
 
-        Per ciascun cluster restituisci un oggetto JSON nel seguente formato:
+        For each cluster, return a JSON object using the following keys in Italian:
         {{
-          "cluster": <numero>,
-          "nome": "<nome cluster>",
-          "descrizione": "<descrizione comportamento>",
-          "strategia": "<strategia marketing>"
+        "cluster": <number>,
+        "nome": "<cluster name>",
+        "descrizione": "<behavior description>",
+        "strategia": "<marketing strategy>"
         }}
 
-        Rispondi solo con un array JSON valido, senza testo aggiuntivo.
+        Respond only with a valid JSON array (no additional text).
 
-        Ecco i dati medi per cluster:
+        Here are the average data for each cluster:
 
         {cluster_stats_str}
         """
 
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4.1-mini",
             messages=[
                 {"role": "system", "content": "Sei un esperto di marketing segmentato."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7
+            temperature=0.8
         )
 
         gpt_output = response.choices[0].message.content
