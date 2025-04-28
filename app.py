@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify
 import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_score
 import openai
 import json
 import os
@@ -10,12 +11,9 @@ import ast
 import re
 import requests
 from prophet import Prophet
+
 app = Flask(__name__)
 CORS(app)
-# Definizione delle colonne da usare
-
-
-
 @app.route('/cluster-clienti', methods=['POST'])
 def cluster_clienti():
     try:
@@ -44,32 +42,47 @@ def cluster_clienti():
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
 
-        n_clusters = min(8, len(df))
-        if n_clusters < 2:
+        n_min = 2
+        n_max = min(8, len(df))  # massimo 8 o meno clienti disponibili
+        if n_max < 2:
             return jsonify({"errore": "Sono necessari almeno 2 clienti per eseguire il clustering."}), 400
 
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        # Scelta automatica migliore n_clusters usando silhouette score
+        best_n_clusters = n_min
+        best_score = -1
+
+        for n in range(n_min, n_max + 1):
+            kmeans_test = KMeans(n_clusters=n, random_state=42)
+            labels_test = kmeans_test.fit_predict(X_scaled)
+            score = silhouette_score(X_scaled, labels_test)
+            if score > best_score:
+                best_n_clusters = n
+                best_score = score
+
+        # Clustering finale
+        kmeans = KMeans(n_clusters=best_n_clusters, random_state=42)
         df["cluster"] = kmeans.fit_predict(X_scaled)
 
         # 3. Output JSON clienti + cluster
         df_export = df[["id_cliente", "cluster"]]
         json_output = df_export.to_dict(orient="records")
 
-        # 4. Medie per cluster per il prompt
+        # 4. Medie per cluster per il prompt (JSON pronto)
         cluster_stats = df.groupby("cluster")[features].mean().round(2)
-        cluster_stats_str = cluster_stats.to_string()
+        cluster_stats_json = cluster_stats.to_dict(orient="index")  # formato JSON
+        cluster_stats_str = json.dumps(cluster_stats_json, indent=2)  # per mandarlo a GPT come stringa
 
         # 5. Chiamata a GPT con richiesta output JSON
         client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
         prompt = f"""
-        You are a marketing expert. Analyze the averages of the following {n_clusters} customer clusters from a veterinary clinic.
+        You are a marketing expert. Analyze the averages of the following {best_n_clusters} customer clusters from a veterinary clinic.
 
         For each cluster, return a JSON object using the following keys in Italian:
         {{
-        "cluster": <number>,
-        "nome": "<cluster name>",
-        "descrizione": "<behavior description>",
-        "strategia": "<marketing strategy>"
+          "cluster": <number>,
+          "nome": "<cluster name>",
+          "descrizione": "<behavior description>",
+          "strategia": "<marketing strategy>"
         }}
         Guidelines:
         - Provide a detailed and professional analysis.
@@ -79,11 +92,7 @@ def cluster_clienti():
         - The description ('descrizione') should summarize key behavioral traits.
         - The strategy ('strategia') should be practical and tailored to the cluster profile.
         - Response in English.
-
-        Respond only with a valid JSON array (no additional text).
-
         Here are the average data for each cluster:
-
         {cluster_stats_str}
         """
 
@@ -91,10 +100,10 @@ def cluster_clienti():
             model="gpt-4.1-mini",
             messages=[
                 {"role": "system", "content": "You are a segmented marketing expert specializing in customer behavior analysis for veterinary clinics. "
-                "Your task is to generate detailed, practical marketing insights. "
-                "Always respond using clear, professional business language. "
-                "Unless explicitly asked otherwise, provide output strictly in valid JSON format, using only the specified Italian keys ('cluster', 'nome', 'descrizione', 'strategia'). "
-                "Focus on realistic and actionable marketing strategies tailored to each customer cluster."},
+                 "Your task is to generate detailed, practical marketing insights. "
+                 "Always respond using clear, professional business language. "
+                 "Unless explicitly asked otherwise, provide output strictly in valid JSON format, using only the specified Italian keys ('cluster', 'nome', 'descrizione', 'strategia'). "
+                 "Focus on realistic and actionable marketing strategies tailored to each customer cluster."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.8
@@ -142,8 +151,7 @@ def cluster_da_php():
             return cluster_clienti()
 
     except Exception as e:
-        return jsonify({"errore": str(e)}), 500
-    
+        return jsonify({"errore": str(e)}), 500  
 @app.route('/forecast-appuntamenti', methods=['POST'])
 def forecast_appuntamenti():
     try:

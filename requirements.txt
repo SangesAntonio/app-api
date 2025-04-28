@@ -5,7 +5,6 @@ requests
 scikit-learn
 openai
 prophet
-matplotlib
 numpy
 
 
