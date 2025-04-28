@@ -78,6 +78,7 @@ def cluster_clienti():
         - The cluster name ('nome') should be concise and memorable.
         - The description ('descrizione') should summarize key behavioral traits.
         - The strategy ('strategia') should be practical and tailored to the cluster profile.
+        - Response in English.
 
         Respond only with a valid JSON array (no additional text).
 
